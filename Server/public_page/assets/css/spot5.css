@@ -1,0 +1,28 @@
+body {
+  background-image: url("assets/images/spot5/light-color-background.jpg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  margin: 20px;
+  border: 2px dashed black;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+img {
+  width: 300px;
+  height: 200px;
+}
+ul {
+  list-style-type:disc;
+}
+li:nth-child(1) {
+  color: red;
+}
+li:nth-child(2) {
+  color: blue;
+}
+li:nth-child(3) {
+  color: green;
+}
+li:nth-child(4) {
+  color: orange;
+}

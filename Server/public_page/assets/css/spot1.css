@@ -1,0 +1,74 @@
+body {
+  background-image: url("assets/images/spot1/5.jpeg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  border: 3px dashed gray;
+  padding: 20px;
+  margin: 20px;
+  font-family: Arial, sans-serif;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+h1 {
+  margin: 20px 0px;
+  text-align: center;
+  color: green;
+  font-size: 60px;
+}
+h2 {
+  color: red;
+  font-size: 40px;
+}
+p {
+  font-size: 30px;
+}
+li {
+  font-size: 30px;
+}
+ul {
+  list-style-type: none;
+}
+ul li {
+  padding: 10px;
+  margin-bottom: 10px;
+}
+li:nth-child(1) {
+  color: red;
+}
+li:nth-child(2) {
+  color: blue;
+}
+li:nth-child(3) {
+  color: green;
+}
+li:nth-child(4) {
+  color: orange;
+}
+.image {
+  width: 90%;
+  margin: 0 auto;
+  display: block;
+  margin-bottom: 1em;
+}
+.imge img {
+  padding-left: 30px;
+  width: 100%;
+}
+.img {
+  width: 100%;
+}
+.content-left {
+  float: left;
+  width: 49%;
+}
+.content-right {
+  float: right;
+  width: 49%;
+}
+#city-html {
+  display: block;
+  clear: both;
+  padding-top: 10px;
+}

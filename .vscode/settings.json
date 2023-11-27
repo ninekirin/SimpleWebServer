@@ -1,6 +1,18 @@
 {
     "files.associations": {
         "ostream": "cpp",
-        "xstring": "cpp"
+        "xstring": "cpp",
+        "thread": "cpp",
+        "string": "cpp",
+        "fstream": "cpp",
+        "algorithm": "cpp",
+        "chrono": "cpp",
+        "optional": "cpp",
+        "system_error": "cpp",
+        "type_traits": "cpp",
+        "xlocmon": "cpp",
+        "xtr1common": "cpp",
+        "xutility": "cpp",
+        "iosfwd": "cpp"
     }
 }
