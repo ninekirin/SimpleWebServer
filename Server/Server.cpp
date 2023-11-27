@@ -94,11 +94,22 @@ string parseUrl(const string &url)
     }
 
     // if resource points to a directory, then default to index.html inside that directory
-    // that is, if the URL is http://localhost:8080/about/, then the resource will be about/index.html
-    // also if the URL is http://localhost:8080/about, then the resource will be about/index.html
     if (resource.back() == '/')
     {
         resource += DEFAULT_FILE;
+    }
+    // without the trailing slash, if the URL is http://localhost:8080/about, then the resource will be about/index.html
+    else
+    {
+        size_t lastSlash = resource.find_last_of('/');
+        if (lastSlash != string::npos)
+        {
+            string lastPart = resource.substr(lastSlash + 1);
+            if (lastPart.find('.') == string::npos)
+            {
+                resource = resource + "/" + DEFAULT_FILE;
+            }
+        }
     }
 
     // default resource to index.html if empty
@@ -111,8 +122,16 @@ string parseUrl(const string &url)
         resource = resource.substr(1); // Remove the leading '/'
     }
 
-    return resource + queryString;
+    // translate '/' to '\\' for Windows paths
+    for (size_t i = 0; i < resource.size(); ++i)
+    {
+        if (resource[i] == '/')
+        {
+            resource[i] = '\\';
+        }
+    }
 
+    return resource + queryString;
 }
 
 // Handles the HTTP request and sends a response
@@ -133,7 +152,7 @@ void handleHttpRequest(Client &client)
 
         istringstream lineStream(requestLine);
         string method;
-        string url;
+        string url; // This will hold the raw URL, which may include a query string or URI parameters
         string httpVersion;
         lineStream >> method >> url >> httpVersion;
 
@@ -145,13 +164,18 @@ void handleHttpRequest(Client &client)
             return;
         }
 
-        string filePath = string(SERVER_HOME_DIR) + "/" + url;
+        string resource = parseUrl(url); // Use the URL parser function to get resource path
+
+        string filePath = string(SERVER_HOME_DIR) + "\\" + resource; // Consider backslash for Windows paths
         string fileContent = readFileIntoString(filePath);
-        string contentType = getContentType(url);
+        string contentType = getContentType(resource); // Get the correct content type based on processed resource
 
         // Debug: print the request
         cout << method << " " << url << " " << httpVersion << endl;
-        // Debug: 输出磁盘上的文件路径，需要绝对路径
+        // Debug: print the resource
+        cout << "Resource: " << resource << endl;
+        // Debug: print the file path
+        cout << "File path: " << filePath << endl;
 
         if (fileContent.empty())
         {
