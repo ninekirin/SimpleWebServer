@@ -1,0 +1,366 @@
+html {
+  font-size: 16px;
+}
+
+.member-photo {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+}
+
+.subtitle {
+  font-size: 1.5em;
+}
+.subtitle1 {
+  color: blue;
+}
+.subtitle2 {
+  color: red;
+}
+.subtitle3 {
+  color: green;
+}
+.subtitle4 {
+  color: purple;
+}
+.subtitle5 {
+  color: orange;
+}
+
+/** Reset some basic elements */
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+hr,
+dl,
+dd,
+ol,
+ul,
+figure {
+  /* margin: 0; */
+  margin-top:3 px;
+  padding: 0;
+}
+
+/** Basic styling */
+body {
+  font: 400 16px/1.5 -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  color: #111111;
+  background-color: #fdfdfd;
+  -webkit-font-feature-settings: "kern" 1;
+  font-feature-settings: "kern" 1;
+  font-kerning: normal;
+}
+
+/** Set `margin-bottom` to maintain vertical rhythm */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+ul,
+ol,
+dl,
+figure,
+.highlight {
+  margin-bottom: 15px;
+}
+
+hr {
+  margin-top: 30px;
+  margin-bottom: 30px;
+}
+
+/** `main` element */
+main {
+  display: block; /* Default value of `display` of `main` element is 'inline' in IE 11. */
+}
+
+/** Images */
+img {
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+/** Figures */
+figure > img {
+  display: block;
+}
+
+figcaption {
+  font-size: 14px;
+}
+
+/** Lists */
+ul,
+ol {
+  margin-left: 30px;
+}
+
+li > ul,
+li > ol {
+  margin-bottom: 0;
+}
+
+/** Headings */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 400;
+}
+
+/** Links */
+a {
+  color: #256fee;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #0e4db8;
+}
+
+a:hover {
+  color: #111111;
+  text-decoration: underline;
+}
+
+/** Wrapper */
+.wrapper {
+  max-width: 800px;
+  margin-right: auto;
+  margin-left: auto;
+  padding-right: 15px;
+  padding-left: 15px;
+}
+
+/** Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.invisible_table td {
+  border: none;
+}
+
+.visible_table table {
+  margin-bottom: 30px;
+  width: 100%;
+  color: #3f3f3f;
+  border-collapse: collapse;
+  border: 1px solid #e0dddd;
+}
+
+.visible_table tr:nth-child(even) {
+  background-color: #efeded;
+}
+
+.visible_table th,
+.visible_table td {
+  padding: 10px 15px;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.visible_table th {
+  background-color: #e7e5e5;
+  border: 1px solid #d9d5d5;
+}
+
+.visible_table td {
+  border: 1px solid #e0dddd;
+}
+
+/** Site logo **/
+
+.site-logo {
+  background-image: url("images/logo-image.jpg");
+  background-repeat: no-repeat;
+  background-size: 70px 35px;
+  width: 70px;
+  height: 35px;
+  display: inline-block;
+  margin-left: 3px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/** Site header */
+
+.site-header {
+  border-top: 5px solid #3b3636;
+  border-bottom: 1px solid #e0dddd;
+  min-height: 55.95px;
+  line-height: 54px;
+  position: relative;
+}
+
+.site-title {
+  font-size: 1.625rem;
+  font-weight: 300;
+  letter-spacing: -1px;
+  margin-bottom: 0;
+  float: left;
+}
+
+.site-title,
+.site-title:visited {
+  color: #3b3636;
+}
+
+.site-nav {
+  position: static;
+  float: right;
+  border: none;
+  background-color: inherit;
+}
+
+.site-nav .page-link {
+  display: inline;
+  padding: 0;
+  margin-left: auto;
+}
+.site-nav .page-link:not(:last-child) {
+  margin-right: 20px;
+}
+
+/** Site footer */
+.site-footer {
+  border-top: 1px solid #e0dddd;
+  padding: 30px 0;
+}
+
+.footer-heading {
+  font-size: 1.125rem;
+  margin-bottom: 15px;
+}
+
+.footer-col-wrapper {
+  font-size: 0.9375rem;
+  color: #7e7373;
+}
+
+.footer-col {
+  margin-bottom: 15px;
+}
+
+/* * Page content */
+
+.page-content {
+  padding: 30px 0;
+  flex: 1 0 auto;
+}
+
+.page-heading {
+  font-size: 2rem;
+}
+
+.post-list-heading {
+  font-size: 1.75rem;
+}
+
+.post-list {
+  margin-left: 0;
+  list-style: none;
+}
+
+.post-list > li {
+  margin-bottom: 30px;
+}
+
+.post-meta {
+  font-size: 14px;
+  color: #7e7373;
+}
+
+.post-link {
+  display: block;
+  font-size: 1.5rem;
+}
+
+/** Posts */
+.post-header {
+  margin-bottom: 30px;
+}
+
+.post-title,
+.post-content h1 {
+  font-size: 2.625rem;
+  letter-spacing: -1px;
+  line-height: 1.15;
+}
+
+.post-content {
+  margin-bottom: 30px;
+}
+
+.post-content h1,
+.post-content h2,
+.post-content h3 {
+  margin-top: 60px;
+}
+
+.post-content h4,
+.post-content h5,
+.post-content h6 {
+  margin-top: 30px;
+}
+
+.post-content h2 {
+  font-size: 1.75rem;
+}
+
+.post-content h3 {
+  font-size: 1.375rem;
+}
+
+.post-content h4 {
+  font-size: 1.25rem;
+}
+
+.post-content h5 {
+  font-size: 1.125rem;
+}
+
+.post-content h6 {
+  font-size: 1.0625rem;
+}
+*/
+
+/** Pagination navbar */
+.pagination {
+  margin-bottom: 30px;
+}
+
+.pagination li a,
+.pagination li div {
+  min-width: 41px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.pagination li div {
+  display: block;
+  padding: 7.5px;
+  border: 1px solid transparent;
+}
+
+.pagination li div.pager-edge {
+  color: #e0dddd;
+  border: 1px dashed;
+}
