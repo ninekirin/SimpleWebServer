@@ -37,6 +37,18 @@ const char *motd = R"(
                   |_|                                                            
 )";
 
+/* teapot */
+const char *teapot = R"(
+-=[ teapot ]=-
+
+    ( (
+     ) )
+  ........
+  |      |]|
+  \      / 
+   `----'
+)";
+
 string serverHomeDir;
 int listeningPort;
 
@@ -282,12 +294,41 @@ void handleHttpRequest(Client &client)
     string httpVersion;
     lineStream >> method >> url >> httpVersion;
 
+    // 418 I'm a teapot
+    // RFC 2324: https://tools.ietf.org/html/rfc2324
+    // Method: BREW or POST with Content-Type: application/coffee-pot-command
+    //         or GET /coffee
+    // Example: curl -i -X BREW -H "Content-Type: application/coffee-pot-command" http://localhost:8080
+    if ((method == "BREW" || method == "POST") && request.find("Content-Type: application/coffee-pot-command") != string::npos)
+    {
+        string response = "HTTP/1.1 418 I'm a teapot\r\nContent-Type: message/coffeepot\r\n\r\n" + string(teapot);
+        send(client.socket, response.c_str(), response.size(), 0);
+        // Debug: print the response
+        safePrint("<- Response: 418 I'm a teapot");
+        shutdown(client.socket, SD_SEND); // Send FIN
+        closesocket(client.socket);
+        return;
+    }
+
+    // 418 I'm a teapot
+    // Method: GET /coffee
+    if (method == "GET" && url == "/coffee")
+    {
+        string response = "HTTP/1.1 418 I'm a teapot\r\nx-more-info: http://tools.ietf.org/html/rfc2324\r\n\r\n" + string(teapot);
+        send(client.socket, response.c_str(), response.size(), 0);
+        // Debug: print the response
+        safePrint("<- Response: 418 I'm a teapot");
+        shutdown(client.socket, SD_SEND); // Send FIN
+        closesocket(client.socket);
+        return;
+    }
+
     // Now we only support GET requests
     if (method != "GET")
     {
         // Print RAW request
         cout << request << endl;
-        string response = "HTTP/1.1 501 Not Implemented\r\nConnection: close\r\n\r\n";
+        string response = "HTTP/1.1 501 Not Implemented\r\n\r\n";
         send(client.socket, response.c_str(), response.size(), 0);
         shutdown(client.socket, SD_SEND); // Send FIN
         closesocket(client.socket);
@@ -296,7 +337,7 @@ void handleHttpRequest(Client &client)
     // If the request line is invalid, then send a 400 response
     else if (method.empty() || url.empty() || httpVersion.empty())
     {
-        string response = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n";
+        string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
         send(client.socket, response.c_str(), response.size(), 0);
         // Debug: print the response
         safePrint("<- Response: 400 Bad Request");
@@ -398,7 +439,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    sockaddr_in serverAddress;
+    sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddress.sin_port = htons(listeningPort); // Default port for HTTP
