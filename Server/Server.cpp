@@ -219,7 +219,9 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
     if (!fileStream.is_open())
     {
         // File not found, send 404 response
-        string response = "HTTP/1.0 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
+        string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
+        // Debug: print the response
+        safePrint("<- Response: 404 Not Found");
         send(socket, response.c_str(), response.size(), 0);
         return;
     }
@@ -231,12 +233,14 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
 
     // Send HTTP headers
     stringstream headers;
-    headers << "HTTP/1.0 200 OK\r\n";
+    headers << "HTTP/1.1 200 OK\r\n";
     headers << "Content-Type: " << contentType << "\r\n";
     headers << "Content-Length: " << fileLength << "\r\n";
     headers << "Connection: keep-alive\r\n";
     headers << "\r\n";
     string headersStr = headers.str();
+    // Debug: print the response
+    
     send(socket, headersStr.c_str(), headersStr.size(), 0);
 
     // Send the file content in chunks
@@ -244,6 +248,66 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
     while (fileStream.read(buffer, sizeof(buffer)) || fileStream.gcount())
     {
         send(socket, buffer, fileStream.gcount(), 0);
+    }
+    fileStream.close();
+}
+
+// Function to send partial content of a file
+void sendPartialContent(const SOCKET &socket, const string &filePath, const string &contentType, size_t startByte, size_t endByte)
+{
+    ifstream fileStream(filePath, ios::in | ios::binary);
+    if (!fileStream.is_open())
+    {
+        // File not found, send 404 response
+        string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
+        // Debug: print the response
+        safePrint("<- Response: 404 Not Found");
+        send(socket, response.c_str(), response.size(), 0);
+        return;
+    }
+
+    // Get the length of the file
+    fileStream.seekg(0, fileStream.end);
+    size_t fileLength = fileStream.tellg();
+    fileStream.seekg(0, fileStream.beg);
+
+    // If the endByte is greater than the file length, then set it to the file length
+    if (endByte > fileLength - 1)
+    {
+        endByte = fileLength - 1;
+    }
+
+    // If the startByte is greater than the endByte, then send 416 response
+    if (startByte > endByte)
+    {
+        string response = "HTTP/1.1 416 Requested Range Not Satisfiable\r\nContent-Type: text/html\r\n\r\n<html><body><h1>416 Requested Range Not Satisfiable</h1></body></html>";
+        // Debug: print the response
+        safePrint("<- Response: 416 Requested Range Not Satisfiable");
+        send(socket, response.c_str(), response.size(), 0);
+        return;
+    }
+
+    // Send HTTP headers
+    stringstream headers;
+    headers << "HTTP/1.1 206 Partial Content\r\n";
+    headers << "Content-Type: " << contentType << "\r\n";
+    headers << "Content-Length: " << endByte - startByte + 1 << "\r\n";
+    headers << "Content-Range: bytes " << startByte << "-" << endByte << "/" << fileLength << "\r\n";
+    headers << "Connection: keep-alive\r\n";
+    headers << "\r\n";
+    string headersStr = headers.str();
+    // Debug: print the response
+    safePrint("<- Response: 206 Partial Content (Range: " + to_string(startByte) + "-" + to_string(endByte) + "/" + to_string(fileLength) + ")");
+    send(socket, headersStr.c_str(), headersStr.size(), 0);
+
+    // Send the file content in chunks
+    char buffer[BUFFER_LEN];
+    size_t bytesRemaining = endByte - startByte + 1;
+    fileStream.seekg(startByte, fileStream.beg);
+    while (bytesRemaining && fileStream.read(buffer, min(sizeof(buffer), bytesRemaining)))
+    {
+        send(socket, buffer, fileStream.gcount(), 0);
+        bytesRemaining -= fileStream.gcount();
     }
     fileStream.close();
 }
@@ -324,92 +388,154 @@ string parseUrl(const string &url)
 // Handles the HTTP request and sends a response with keep-alive support
 void handleHttpRequest(Client &client)
 {
-    char buffer[BUFFER_LEN];
-    int receivedBytes = recv(client.socket, buffer, BUFFER_LEN - 1, 0);
-
-    if (receivedBytes < 0)
-        return;
-    buffer[receivedBytes] = '\0';
-    string request(buffer);
-
-    // Parse the HTTP request
-    istringstream requestStream(request);
-    string requestLine;
-    getline(requestStream, requestLine);
-
-    istringstream lineStream(requestLine);
-    string method;
-    string url; // This will hold the raw URL, which may include a query string or URI parameters
-    string httpVersion;
-    lineStream >> method >> url >> httpVersion;
-
-    
-    // Now we only support GET requests
-    if (method != "GET")
+    while (true)
     {
-        string response = "HTTP/1.0 501 Not Implemented\r\nConnection: close\r\n\r\n";
-        send(client.socket, response.c_str(), response.size(), 0);
-        return;
-    }
-    // If the request line is invalid, then send a 400 response
-    else if (method.empty() || url.empty() || httpVersion.empty())
-    {
-        string response = "HTTP/1.0 400 Bad Request\r\nConnection: close\r\n\r\n";
-        send(client.socket, response.c_str(), response.size(), 0);
-        // Debug: print the response
-        safePrint("<- Response: 400 Bad Request");
-        return;
-    }
+        char buffer[BUFFER_LEN];
+        int receivedBytes = recv(client.socket, buffer, BUFFER_LEN - 1, 0);
 
-    // Parse the 'Connection' header
-    bool keepAlive = false;
-    string connectionHeader;
-    while (getline(requestStream, connectionHeader))
-    {
-        if (connectionHeader.find("Connection: ") != string::npos)
+        if (receivedBytes < 0)
+            return;
+
+        // If the client sends FIN, then recv() will return 0
+        // In this case, we can close the socket and exit the thread
+        if (receivedBytes == 0)
         {
-            connectionHeader.erase(0, 12);
-            if (connectionHeader == "keep-alive")
-            {
-                keepAlive = true;
-            }
-            break;
+            // cout << "Client closed the connection" << endl;
+            safePrint("Client closed the connection");
+            closesocket(client.socket);
+            return;
         }
-    }
 
-    string resource = parseUrl(url); // Use the URL parser function to get resource path
+        buffer[receivedBytes] = '\0';
+        string request(buffer);
 
-    string filePath = string(serverHomeDir) + "\\" + resource; // Consider backslash for Windows paths
-    string contentType = getContentType(resource);             // Get the correct content type based on processed resource
+        // Parse the HTTP request
+        istringstream requestStream(request);
+        string requestLine;
+        getline(requestStream, requestLine);
 
-    // Debug: print the request
-    safePrint(method + " " + url + " " + httpVersion);
-    // Debug: print the resource
-    safePrint("-> Resource: " + resource);
+        istringstream lineStream(requestLine);
+        string method;
+        string url; // This will hold the raw URL, which may include a query string or URI parameters
+        string httpVersion;
+        lineStream >> method >> url >> httpVersion;
 
-    // Check if the file exists
-    ifstream testStream(filePath, ios::in | ios::binary);
-    if (!testStream.is_open())
-    {
-        string response = "HTTP/1.0 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
-        send(client.socket, response.c_str(), response.size(), 0);
-        // Debug: print the response
-        safePrint("<- Response: 404 Not Found");
-    }
-    else
-    {
-        testStream.close();
-        // For large files, use a function that streams the file contents
-        sendFileContent(client.socket, filePath, contentType);
-        // Debug: print the response
-        safePrint("<- Response: 200 OK");
+        // Now we only support GET requests
+        if (method != "GET")
+        {
+            // Print RAW request
+            cout << request << endl;
+            string response = "HTTP/1.1 501 Not Implemented\r\nConnection: close\r\n\r\n";
+            send(client.socket, response.c_str(), response.size(), 0);
+            return;
+        }
+        // If the request line is invalid, then send a 400 response
+        else if (method.empty() || url.empty() || httpVersion.empty())
+        {
+            string response = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n";
+            send(client.socket, response.c_str(), response.size(), 0);
+            // Debug: print the response
+            safePrint("<- Response: 400 Bad Request");
+            return;
+        }
+
+        // Parse the 'Connection' header
+        bool keepAlive = false;
+        string connectionHeader;
+        while (getline(requestStream, connectionHeader))
+        {
+            if (connectionHeader.find("Connection: ") != string::npos)
+            {
+                connectionHeader.erase(0, 12);
+                if (connectionHeader == "keep-alive")
+                {
+                    keepAlive = true;
+                }
+                break;
+            }
+        }
+
+        string resource = parseUrl(url); // Use the URL parser function to get resource path
+
+        string filePath = string(serverHomeDir) + "\\" + resource; // Consider backslash for Windows paths
+        string contentType = getContentType(resource);             // Get the correct content type based on processed resource
+
+        // Debug: print the request
+        safePrint(method + " " + url + " " + httpVersion);
+        // Debug: print the resource
+        safePrint("-> Resource: " + resource);
+
+        // Check if the file exists
+
+        ifstream testStream(filePath, ios::in | ios::binary);
+        if (!testStream.is_open())
+        {
+            string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
+            send(client.socket, response.c_str(), response.size(), 0);
+            // Debug: print the response
+            safePrint("<- Response: 404 Not Found");
+        }
+        else
+        {
+            // get length of file:
+            testStream.seekg(0, testStream.end);
+            size_t fileLength = testStream.tellg();
+
+            size_t startByte = 0, endByte = fileLength - 1;
+            bool rangeRequest = false;
+
+            // Parse the 'Range' header if present
+            string rangeHeader;
+            while (getline(requestStream, rangeHeader))
+            {
+                stringstream headerStream(rangeHeader);
+                string headerName;
+                if (getline(headerStream, headerName, ':'))
+                {
+                    if (headerName == "Range")
+                    {
+                        string rangeValue;
+                        if (getline(headerStream, rangeValue))
+                        {
+                            // Trim leading whitespaces
+                            rangeValue.erase(0, rangeValue.find_first_not_of(" \t"));
+                            if (sscanf_s(rangeValue.c_str(), "bytes=%zu-%zu", &startByte, &endByte) == 2)
+                            {
+                                rangeRequest = true;
+                            }
+                            else if (sscanf_s(rangeValue.c_str(), "bytes=%zu-", &startByte) == 1)
+                            {
+                                endByte = fileLength - 1;
+                                rangeRequest = true;
+                            }
+                        }
+                    }
+                }
+            }
+            // Sending file content
+            if (rangeRequest)
+            {
+                sendPartialContent(client.socket, filePath, contentType, startByte, endByte);
+            }
+            else
+            {
+                sendFileContent(client.socket, filePath, contentType);
+            }
+
+            // If the client wants to close the connection, then close it
+            if (!keepAlive)
+            {
+                closesocket(client.socket);
+                break;
+            }
+        }
     }
 }
 
 void handleClient(Client client)
 {
     handleHttpRequest(client);
-    closesocket(client.socket);
+    // closesocket(client.socket);
 }
 
 int main(int argc, char *argv[])
