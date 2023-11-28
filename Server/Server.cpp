@@ -27,8 +27,18 @@ const char *DEFAULT_SERVER_HOME_DIR = "C:\\Users\\Kirin\\source\\repos\\SimpleWe
 const char *DEFAULT_FILE = "index.html";                                                                       // Default file to serve
 const unsigned int DEFAULT_PORT = 8080;                                                                        // Default port for HTTP server
 
-string serverHomeDir(DEFAULT_SERVER_HOME_DIR);
-int listeningPort(DEFAULT_PORT);
+/* motd: SimpleWebServer */
+const char *motd = R"(
+ ____  _                 _    __        __   _    ____                           
+/ ___|(_)_ __ ___  _ __ | | __\ \      / /__| |__/ ___|  ___ _ ____   _____ _ __ 
+\___ \| | '_ ` _ \| '_ \| |/ _ \ \ /\ / / _ \ '_ \___ \ / _ \ '__\ \ / / _ \ '__|
+ ___) | | | | | | | |_) | |  __/\ V  V /  __/ |_) |__) |  __/ |   \ V /  __/ |   
+|____/|_|_| |_| |_| .__/|_|\___| \_/\_/ \___|_.__/____/ \___|_|    \_/ \___|_|   
+                  |_|                                                            
+)";
+
+string serverHomeDir;
+int listeningPort;
 
 // Mutex for printing to cout
 mutex cout_mutex;
@@ -37,7 +47,6 @@ mutex cout_mutex;
 void safePrint(const string &message)
 {
     lock_guard<mutex> guard(cout_mutex);
-    // cout << message << endl;
     // Output with timestamp (format: [seconds.milliseconds] message)
     auto currentTime = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(currentTime - startTime);
@@ -68,17 +77,6 @@ string getCurrentWorkingDirectory()
     return current_working_directory;
 }
 
-// Function to read the entire file into a string
-string readFileIntoString(const string &path)
-{
-    ifstream input_file(path);
-    if (!input_file.is_open())
-    {
-        return "";
-    }
-    return string((istreambuf_iterator<char>(input_file)), istreambuf_iterator<char>());
-}
-
 // Function to determine the MIME type based on file extension
 string getContentType(const string &filename)
 {
@@ -93,14 +91,6 @@ string getContentType(const string &filename)
     else if (filename.find(".png") != string::npos)
     {
         return "image/png";
-    }
-    else if (filename.find(".bmp") != string::npos)
-    {
-        return "image/bmp";
-    }
-    else if (filename.find(".svg") != string::npos)
-    {
-        return "image/svg+xml";
     }
     else if (filename.find(".webp") != string::npos)
     {
@@ -134,73 +124,9 @@ string getContentType(const string &filename)
     {
         return "application/zip";
     }
-    else if (filename.find(".doc") != string::npos || filename.find(".docx") != string::npos)
-    {
-        return "application/msword";
-    }
-    else if (filename.find(".xls") != string::npos || filename.find(".xlsx") != string::npos)
-    {
-        return "application/vnd.ms-excel";
-    }
-    else if (filename.find(".ppt") != string::npos || filename.find(".pptx") != string::npos)
-    {
-        return "application/vnd.ms-powerpoint";
-    }
-    else if (filename.find(".mp3") != string::npos)
-    {
-        return "audio/mpeg";
-    }
-    else if (filename.find(".mp4") != string::npos)
-    {
-        return "video/mp4";
-    }
-    else if (filename.find(".ogg") != string::npos)
-    {
-        return "audio/ogg";
-    }
-    else if (filename.find(".ogv") != string::npos)
-    {
-        return "video/ogg";
-    }
-    else if (filename.find(".ogx") != string::npos)
-    {
-        return "application/ogg";
-    }
-    else if (filename.find(".wav") != string::npos)
-    {
-        return "audio/wav";
-    }
-    else if (filename.find(".webm") != string::npos)
-    {
-        return "video/webm";
-    }
     else if (filename.find(".xml") != string::npos)
     {
         return "application/xml";
-    }
-    else if (filename.find(".woff") != string::npos)
-    {
-        return "font/woff";
-    }
-    else if (filename.find(".woff2") != string::npos)
-    {
-        return "font/woff2";
-    }
-    else if (filename.find(".ttf") != string::npos)
-    {
-        return "font/ttf";
-    }
-    else if (filename.find(".otf") != string::npos)
-    {
-        return "font/otf";
-    }
-    else if (filename.find(".eot") != string::npos)
-    {
-        return "application/vnd.ms-fontobject";
-    }
-    else if (filename.find(".sfnt") != string::npos)
-    {
-        return "application/font-sfnt";
     }
     else if (filename.find(".txt") != string::npos)
     {
@@ -240,7 +166,7 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
     headers << "\r\n";
     string headersStr = headers.str();
     // Debug: print the response
-    
+    safePrint("<- Response: 200 OK (Length: " + to_string(fileLength) + ")");
     send(socket, headersStr.c_str(), headersStr.size(), 0);
 
     // Send the file content in chunks
@@ -248,66 +174,6 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
     while (fileStream.read(buffer, sizeof(buffer)) || fileStream.gcount())
     {
         send(socket, buffer, fileStream.gcount(), 0);
-    }
-    fileStream.close();
-}
-
-// Function to send partial content of a file
-void sendPartialContent(const SOCKET &socket, const string &filePath, const string &contentType, size_t startByte, size_t endByte)
-{
-    ifstream fileStream(filePath, ios::in | ios::binary);
-    if (!fileStream.is_open())
-    {
-        // File not found, send 404 response
-        string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
-        // Debug: print the response
-        safePrint("<- Response: 404 Not Found");
-        send(socket, response.c_str(), response.size(), 0);
-        return;
-    }
-
-    // Get the length of the file
-    fileStream.seekg(0, fileStream.end);
-    size_t fileLength = fileStream.tellg();
-    fileStream.seekg(0, fileStream.beg);
-
-    // If the endByte is greater than the file length, then set it to the file length
-    if (endByte > fileLength - 1)
-    {
-        endByte = fileLength - 1;
-    }
-
-    // If the startByte is greater than the endByte, then send 416 response
-    if (startByte > endByte)
-    {
-        string response = "HTTP/1.1 416 Requested Range Not Satisfiable\r\nContent-Type: text/html\r\n\r\n<html><body><h1>416 Requested Range Not Satisfiable</h1></body></html>";
-        // Debug: print the response
-        safePrint("<- Response: 416 Requested Range Not Satisfiable");
-        send(socket, response.c_str(), response.size(), 0);
-        return;
-    }
-
-    // Send HTTP headers
-    stringstream headers;
-    headers << "HTTP/1.1 206 Partial Content\r\n";
-    headers << "Content-Type: " << contentType << "\r\n";
-    headers << "Content-Length: " << endByte - startByte + 1 << "\r\n";
-    headers << "Content-Range: bytes " << startByte << "-" << endByte << "/" << fileLength << "\r\n";
-    headers << "Connection: keep-alive\r\n";
-    headers << "\r\n";
-    string headersStr = headers.str();
-    // Debug: print the response
-    safePrint("<- Response: 206 Partial Content (Range: " + to_string(startByte) + "-" + to_string(endByte) + "/" + to_string(fileLength) + ")");
-    send(socket, headersStr.c_str(), headersStr.size(), 0);
-
-    // Send the file content in chunks
-    char buffer[BUFFER_LEN];
-    size_t bytesRemaining = endByte - startByte + 1;
-    fileStream.seekg(startByte, fileStream.beg);
-    while (bytesRemaining && fileStream.read(buffer, min(sizeof(buffer), bytesRemaining)))
-    {
-        send(socket, buffer, fileStream.gcount(), 0);
-        bytesRemaining -= fileStream.gcount();
     }
     fileStream.close();
 }
@@ -388,158 +254,86 @@ string parseUrl(const string &url)
 // Handles the HTTP request and sends a response with keep-alive support
 void handleHttpRequest(Client &client)
 {
-    while (true)
+    char buffer[BUFFER_LEN];
+    int receivedBytes = recv(client.socket, buffer, BUFFER_LEN - 1, 0);
+
+    if (receivedBytes < 0)
     {
-        char buffer[BUFFER_LEN];
-        int receivedBytes = recv(client.socket, buffer, BUFFER_LEN - 1, 0);
-
-        if (receivedBytes < 0)
-            return;
-
-        // If the client sends FIN, then recv() will return 0
-        // In this case, we can close the socket and exit the thread
-        if (receivedBytes == 0)
-        {
-            // cout << "Client closed the connection" << endl;
-            safePrint("Client closed the connection");
-            closesocket(client.socket);
-            return;
-        }
-
-        buffer[receivedBytes] = '\0';
-        string request(buffer);
-
-        // Parse the HTTP request
-        istringstream requestStream(request);
-        string requestLine;
-        getline(requestStream, requestLine);
-
-        istringstream lineStream(requestLine);
-        string method;
-        string url; // This will hold the raw URL, which may include a query string or URI parameters
-        string httpVersion;
-        lineStream >> method >> url >> httpVersion;
-
-        // Now we only support GET requests
-        if (method != "GET")
-        {
-            // Print RAW request
-            cout << request << endl;
-            string response = "HTTP/1.1 501 Not Implemented\r\nConnection: close\r\n\r\n";
-            send(client.socket, response.c_str(), response.size(), 0);
-            return;
-        }
-        // If the request line is invalid, then send a 400 response
-        else if (method.empty() || url.empty() || httpVersion.empty())
-        {
-            string response = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n";
-            send(client.socket, response.c_str(), response.size(), 0);
-            // Debug: print the response
-            safePrint("<- Response: 400 Bad Request");
-            return;
-        }
-
-        // Parse the 'Connection' header
-        bool keepAlive = false;
-        string connectionHeader;
-        while (getline(requestStream, connectionHeader))
-        {
-            if (connectionHeader.find("Connection: ") != string::npos)
-            {
-                connectionHeader.erase(0, 12);
-                if (connectionHeader == "keep-alive")
-                {
-                    keepAlive = true;
-                }
-                break;
-            }
-        }
-
-        string resource = parseUrl(url); // Use the URL parser function to get resource path
-
-        string filePath = string(serverHomeDir) + "\\" + resource; // Consider backslash for Windows paths
-        string contentType = getContentType(resource);             // Get the correct content type based on processed resource
-
-        // Debug: print the request
-        safePrint(method + " " + url + " " + httpVersion);
-        // Debug: print the resource
-        safePrint("-> Resource: " + resource);
-
-        // Check if the file exists
-
-        ifstream testStream(filePath, ios::in | ios::binary);
-        if (!testStream.is_open())
-        {
-            string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
-            send(client.socket, response.c_str(), response.size(), 0);
-            // Debug: print the response
-            safePrint("<- Response: 404 Not Found");
-        }
-        else
-        {
-            // get length of file:
-            testStream.seekg(0, testStream.end);
-            size_t fileLength = testStream.tellg();
-
-            size_t startByte = 0, endByte = fileLength - 1;
-            bool rangeRequest = false;
-
-            // Parse the 'Range' header if present
-            string rangeHeader;
-            while (getline(requestStream, rangeHeader))
-            {
-                stringstream headerStream(rangeHeader);
-                string headerName;
-                if (getline(headerStream, headerName, ':'))
-                {
-                    if (headerName == "Range")
-                    {
-                        string rangeValue;
-                        if (getline(headerStream, rangeValue))
-                        {
-                            // Trim leading whitespaces
-                            rangeValue.erase(0, rangeValue.find_first_not_of(" \t"));
-                            if (sscanf_s(rangeValue.c_str(), "bytes=%zu-%zu", &startByte, &endByte) == 2)
-                            {
-                                rangeRequest = true;
-                            }
-                            else if (sscanf_s(rangeValue.c_str(), "bytes=%zu-", &startByte) == 1)
-                            {
-                                endByte = fileLength - 1;
-                                rangeRequest = true;
-                            }
-                        }
-                    }
-                }
-            }
-            // Sending file content
-            if (rangeRequest)
-            {
-                sendPartialContent(client.socket, filePath, contentType, startByte, endByte);
-            }
-            else
-            {
-                sendFileContent(client.socket, filePath, contentType);
-            }
-
-            // If the client wants to close the connection, then close it
-            if (!keepAlive)
-            {
-                closesocket(client.socket);
-                break;
-            }
-        }
+        cerr << "recv() failed: " << WSAGetLastError() << endl;
+        return;
     }
+    else if (receivedBytes == 0)
+    {
+        closesocket(client.socket);
+        return;
+    }
+
+    buffer[receivedBytes] = '\0';
+    string request(buffer);
+
+    // Parse the HTTP request
+    istringstream requestStream(request);
+    string requestLine;
+    getline(requestStream, requestLine);
+
+    istringstream lineStream(requestLine);
+    string method;
+    string url; // This will hold the raw URL, which may include a query string or URI parameters
+    string httpVersion;
+    lineStream >> method >> url >> httpVersion;
+
+    // Now we only support GET requests
+    if (method != "GET")
+    {
+        // Print RAW request
+        cout << request << endl;
+        string response = "HTTP/1.1 501 Not Implemented\r\nConnection: close\r\n\r\n";
+        send(client.socket, response.c_str(), response.size(), 0);
+        shutdown(client.socket, SD_SEND); // Send FIN
+        closesocket(client.socket);
+        return;
+    }
+    // If the request line is invalid, then send a 400 response
+    else if (method.empty() || url.empty() || httpVersion.empty())
+    {
+        string response = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n";
+        send(client.socket, response.c_str(), response.size(), 0);
+        // Debug: print the response
+        safePrint("<- Response: 400 Bad Request");
+        shutdown(client.socket, SD_SEND); // Send FIN
+        closesocket(client.socket);
+        return;
+    }
+
+    string resource = parseUrl(url);                           // Use the URL parser function to get resource path
+    string filePath = string(serverHomeDir) + "\\" + resource; // Consider backslash for Windows paths
+    string contentType = getContentType(resource);             // Get the correct content type based on processed resource
+
+    // Debug: print the request
+    safePrint(method + " " + url + " " + httpVersion);
+    // Debug: print the resource
+    safePrint("-> Resource: " + resource);
+    // Debug: print the file path
+    // safePrint("-> File path: " + filePath);
+
+    sendFileContent(client.socket, filePath, contentType);
 }
 
 void handleClient(Client client)
 {
     handleHttpRequest(client);
-    // closesocket(client.socket);
+    closesocket(client.socket);
 }
 
 int main(int argc, char *argv[])
 {
+    // Print motd
+    cout << motd << endl;
+
+    // Default values
+    serverHomeDir = getCurrentWorkingDirectory(); // DEFAULT_SERVER_HOME_DIR | getCurrentWorkingDirectory()
+    listeningPort = DEFAULT_PORT;
+
     // Parse command-line arguments
     for (int i = 1; i < argc; ++i)
     {
@@ -550,7 +344,6 @@ int main(int argc, char *argv[])
             // If the user enters an empty string or invalid port number, use default value
             if (listeningPort <= 0 || listeningPort > 65535)
             {
-                // cout << "Invalid port number: " << listeningPort << ", using default value: " << DEFAULT_PORT << endl;
                 safePrint("Invalid port number: " + to_string(listeningPort) + ", using default value: " + to_string(DEFAULT_PORT));
                 listeningPort = DEFAULT_PORT;
             }
@@ -565,9 +358,8 @@ int main(int argc, char *argv[])
                 int result = _access(serverHomeDir.c_str(), 0);
                 if (result == -1)
                 {
-                    // cout << "Invalid path: " << serverHomeDir << ", using default value: " << DEFAULT_SERVER_HOME_DIR << endl;
-                    safePrint("Invalid path: " + serverHomeDir + ", using default value: " + DEFAULT_SERVER_HOME_DIR);
-                    serverHomeDir = DEFAULT_SERVER_HOME_DIR;
+                    safePrint("Invalid path: " + serverHomeDir + ", using current working directory: " + getCurrentWorkingDirectory());
+                    serverHomeDir = getCurrentWorkingDirectory();
                 }
                 else
                 {
@@ -580,7 +372,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                serverHomeDir = DEFAULT_SERVER_HOME_DIR;
+                serverHomeDir = getCurrentWorkingDirectory();
             }
         }
         else
@@ -589,37 +381,6 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
-
-    // If no arguments are passed, use default values
-    // if (argc == 1) {
-    //     // Get port number
-    //     string listeningPortStr = to_string(listeningPort);
-    //     cout << "Enter port number: (default: " << listeningPort << ") ";
-    //     scanf_s(" %[^\n]s", &listeningPortStr);
-    //     // If the user enters an empty string or invalid port number, use default value
-    //     if (listeningPortStr != "" || stoi(listeningPortStr) <= 0 || stoi(listeningPortStr) > 65535) {
-    //         listeningPort = stoi(listeningPortStr);
-    //     }
-    //     else {
-    //         listeningPort = DEFAULT_PORT;
-    //     }
-    //     // Get server path
-    //     cout << "Enter server path: (default: " << DEFAULT_SERVER_HOME_DIR << ") ";
-    //     scanf_s(" %[^\n]s", &serverHomeDir);
-    //     // If the user enters an empty string or invalid path, use default value
-    //     if (serverHomeDir != "") {
-    //         // Check if the path exists
-    //         ifstream testStream(serverHomeDir, ios::in | ios::binary);
-    //         if (!testStream.is_open())
-    //         {
-    //             cout << "Invalid path: " << serverHomeDir << ", using default value: " << DEFAULT_SERVER_HOME_DIR << endl;
-    //             serverHomeDir = DEFAULT_SERVER_HOME_DIR;
-    //         }
-    //     }
-    //     else {
-    //         serverHomeDir = DEFAULT_SERVER_HOME_DIR;
-    //     }
-    // }
 
     WSADATA wsaData;
     int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -659,11 +420,9 @@ int main(int argc, char *argv[])
     }
 
     // Debug: getCurrentWorkingDirectory()
-    // cout << "Current working directory: " << getCurrentWorkingDirectory() << endl;
     // safePrint("Current working directory: " + getCurrentWorkingDirectory());
     safePrint("Server home directory: " + serverHomeDir);
 
-    // cout << "Server is listening on port " << ntohs(serverAddress.sin_port) << endl;
     safePrint("Server is listening on port " + to_string(ntohs(serverAddress.sin_port)));
 
     while (true)
