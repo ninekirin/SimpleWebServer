@@ -1,10 +1,9 @@
 ﻿  Server.cpp
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(163,58): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(182,58): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(188,47): warning C4244: “参数”: 从“std::streamsize”转换到“int”，可能丢失数据
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(251,30): warning C4244: “初始化”: 从“unsigned long”转换到“char”，可能丢失数据
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(305,65): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(318,65): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(332,65): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
-C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(341,65): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(114,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(125,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(136,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(147,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(241,58): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(247,47): warning C4244: “参数”: 从“std::streamsize”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(310,30): warning C4244: “初始化”: 从“unsigned long”转换到“char”，可能丢失数据
   Server.vcxproj -> C:\Users\Kirin\source\repos\SimpleWebServer\x64\Debug\Server.exe

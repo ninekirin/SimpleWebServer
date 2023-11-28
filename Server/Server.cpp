@@ -89,6 +89,68 @@ string getCurrentWorkingDirectory()
     return current_working_directory;
 }
 
+string getClientIpAddrAndPort(const SOCKET &socket)
+{
+    sockaddr_in clientAddress{};
+    int clientAddressSize = sizeof(clientAddress);
+    getpeername(socket, (sockaddr *)&clientAddress, &clientAddressSize);
+    char clientIpAddr[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &clientAddress.sin_addr, clientIpAddr, sizeof(clientIpAddr));
+    return string(clientIpAddr) + ":" + to_string(ntohs(clientAddress.sin_port));
+}
+
+// Function to implement I'm a teapot
+void sendTeapot(const SOCKET &socket, const bool &isGet)
+{
+    string response;
+    if (isGet) // GET /coffee
+    {
+        response = "HTTP/1.1 418 I'm a teapot\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(strlen(teapot)) + "\r\nx-more-info: http://tools.ietf.org/html/rfc2324\r\n\r\n" + string(teapot);
+    }
+    else // POST or BREW
+    {
+        response = "HTTP/1.1 418 I'm a teapot\r\nContent-Type: message/coffeepot\r\nContent-Length: " + to_string(strlen(teapot)) + "\r\nx-more-info: http://tools.ietf.org/html/rfc2324\r\n\r\n" + string(teapot);
+    }
+    send(socket, response.c_str(), response.size(), 0);
+    // Debug: print the response
+    safePrint(getClientIpAddrAndPort(socket) + " <- Response: 418 I'm a teapot");
+    shutdown(socket, SD_SEND); // Send FIN
+    closesocket(socket);
+}
+
+// Function to handle 501 Not Implemented
+void sendNotImplemented(const SOCKET &socket)
+{
+    string response = "HTTP/1.1 501 Not Implemented\r\n\r\n";
+    send(socket, response.c_str(), response.size(), 0);
+    // Debug: print the response
+    safePrint(getClientIpAddrAndPort(socket) + " <- Response: 501 Not Implemented");
+    shutdown(socket, SD_SEND); // Send FIN
+    closesocket(socket);
+}
+
+// Function to handle 400 Bad Request
+void sendBadRequest(const SOCKET &socket)
+{
+    string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
+    send(socket, response.c_str(), response.size(), 0);
+    // Debug: print the response
+    safePrint(getClientIpAddrAndPort(socket) + " <- Response: 400 Bad Request");
+    shutdown(socket, SD_SEND); // Send FIN
+    closesocket(socket);
+}
+
+// Function to handle 404 Not Found
+void sendNotFound(const SOCKET &socket)
+{
+    string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
+    send(socket, response.c_str(), response.size(), 0);
+    // Debug: print the response
+    safePrint(getClientIpAddrAndPort(socket) + " <- Response: 404 Not Found");
+    shutdown(socket, SD_SEND); // Send FIN
+    closesocket(socket);
+}
+
 // Function to determine the MIME type based on file extension
 string getContentType(const string &filename)
 {
@@ -157,10 +219,7 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
     if (!fileStream.is_open())
     {
         // File not found, send 404 response
-        string response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
-        // Debug: print the response
-        safePrint("<- Response: 404 Not Found");
-        send(socket, response.c_str(), response.size(), 0);
+        sendNotFound(socket);
         return;
     }
 
@@ -178,7 +237,7 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
     headers << "\r\n";
     string headersStr = headers.str();
     // Debug: print the response
-    safePrint("<- Response: 200 OK (Length: " + to_string(fileLength) + ")");
+    safePrint(getClientIpAddrAndPort(socket) + " <- Response: 200 OK (Length: " + to_string(fileLength) + ")");
     send(socket, headersStr.c_str(), headersStr.size(), 0);
 
     // Send the file content in chunks
@@ -301,12 +360,7 @@ void handleHttpRequest(Client &client)
     // Example: curl -i -X BREW -H "Content-Type: application/coffee-pot-command" http://localhost:8080
     if ((method == "BREW" || method == "POST") && request.find("Content-Type: application/coffee-pot-command") != string::npos)
     {
-        string response = "HTTP/1.1 418 I'm a teapot\r\nContent-Type: message/coffeepot\r\n\r\n" + string(teapot);
-        send(client.socket, response.c_str(), response.size(), 0);
-        // Debug: print the response
-        safePrint("<- Response: 418 I'm a teapot");
-        shutdown(client.socket, SD_SEND); // Send FIN
-        closesocket(client.socket);
+        sendTeapot(client.socket, false);
         return;
     }
 
@@ -314,35 +368,20 @@ void handleHttpRequest(Client &client)
     // Method: GET /coffee
     if (method == "GET" && url == "/coffee")
     {
-        string response = "HTTP/1.1 418 I'm a teapot\r\nx-more-info: http://tools.ietf.org/html/rfc2324\r\n\r\n" + string(teapot);
-        send(client.socket, response.c_str(), response.size(), 0);
-        // Debug: print the response
-        safePrint("<- Response: 418 I'm a teapot");
-        shutdown(client.socket, SD_SEND); // Send FIN
-        closesocket(client.socket);
+        sendTeapot(client.socket, true);
         return;
     }
 
     // Now we only support GET requests
     if (method != "GET")
     {
-        // Print RAW request
-        cout << request << endl;
-        string response = "HTTP/1.1 501 Not Implemented\r\n\r\n";
-        send(client.socket, response.c_str(), response.size(), 0);
-        shutdown(client.socket, SD_SEND); // Send FIN
-        closesocket(client.socket);
+        sendNotImplemented(client.socket);
         return;
     }
     // If the request line is invalid, then send a 400 response
     else if (method.empty() || url.empty() || httpVersion.empty())
     {
-        string response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-        send(client.socket, response.c_str(), response.size(), 0);
-        // Debug: print the response
-        safePrint("<- Response: 400 Bad Request");
-        shutdown(client.socket, SD_SEND); // Send FIN
-        closesocket(client.socket);
+        sendBadRequest(client.socket);
         return;
     }
 
@@ -351,11 +390,7 @@ void handleHttpRequest(Client &client)
     string contentType = getContentType(resource);             // Get the correct content type based on processed resource
 
     // Debug: print the request
-    safePrint(method + " " + url + " " + httpVersion);
-    // Debug: print the resource
-    safePrint("-> Resource: " + resource);
-    // Debug: print the file path
-    // safePrint("-> File path: " + filePath);
+    safePrint(getClientIpAddrAndPort(client.socket) + " -> " + method + " " + url + " " + httpVersion + "\n\t\t\t-> Resource: " + resource);
 
     sendFileContent(client.socket, filePath, contentType);
 }
