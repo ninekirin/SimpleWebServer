@@ -23,7 +23,6 @@ using namespace std::chrono;
 
 auto startTime = high_resolution_clock::now(); // Start measuring time
 
-const char *DEFAULT_SERVER_HOME_DIR = "C:\\Users\\Kirin\\source\\repos\\SimpleWebServer\\Server\\public_page"; // Server home directory
 const char *DEFAULT_FILE = "index.html";                                                                       // Default file to serve
 const unsigned int DEFAULT_PORT = 8080;                                                                        // Default port for HTTP server
 
@@ -49,8 +48,14 @@ const char *teapot = R"(
    `----'
 )";
 
-string serverHomeDir;
-int listeningPort;
+string serverHomeDir = "";
+int listeningPort = 0;
+
+struct Client
+{
+    SOCKET socket;
+    string requestedResource;
+};
 
 // Mutex for printing to cout
 mutex cout_mutex;
@@ -70,12 +75,6 @@ void safePrint(const string &message)
     }
     cout << "[" << duration.count() / 1000 << "." << ms << "] " << message << endl;
 }
-
-struct Client
-{
-    SOCKET socket;
-    string requestedResource;
-};
 
 string getCurrentWorkingDirectory()
 {
@@ -97,6 +96,52 @@ string getClientIpAddrAndPort(const SOCKET &socket)
     char clientIpAddr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &clientAddress.sin_addr, clientIpAddr, sizeof(clientIpAddr));
     return string(clientIpAddr) + ":" + to_string(ntohs(clientAddress.sin_port));
+}
+
+string trim(const string &str)
+{
+    size_t first = str.find_first_not_of(' ');
+    if (first == string::npos)
+        return "";
+    size_t last = str.find_last_not_of(' ');
+    return str.substr(first, last - first + 1);
+}
+
+// Function to read the configuration file and assign the server configuration
+void readConfigFile(const string& configFile)
+{
+    ifstream file(configFile);
+    if (!file.is_open())
+    {
+        safePrint("Could not open " + configFile + ", using default configurations.");
+        return;
+    }
+    
+    string line;
+    while (getline(file, line))
+    {
+        line = trim(line); // Trim the line to remove whitespace
+        if (line[0] == '#' || line.empty())
+            continue; // Skip comments and empty lines
+        
+        size_t separator = line.find('=');
+        if (separator != string::npos)
+        {
+            string key = trim(line.substr(0, separator));
+            string value = trim(line.substr(separator + 1));
+
+            // Process the keys and set the appropriate configuration
+            if (key == "port")
+            {
+                listeningPort = stoi(value);
+            }
+            else if (key == "root_directory")
+            {
+                serverHomeDir = value;
+            }
+        }
+    }
+    file.close();
 }
 
 // Function to implement I'm a teapot
@@ -524,10 +569,6 @@ int main(int argc, char *argv[])
     // Print motd
     cout << motd << endl;
 
-    // Default values
-    serverHomeDir = getCurrentWorkingDirectory(); // DEFAULT_SERVER_HOME_DIR | getCurrentWorkingDirectory()
-    listeningPort = DEFAULT_PORT;
-
     // Parse command-line arguments
     for (int i = 1; i < argc; ++i)
     {
@@ -569,11 +610,26 @@ int main(int argc, char *argv[])
                 serverHomeDir = getCurrentWorkingDirectory();
             }
         }
+        else if ((arg == "-c" || arg == "--config") && i + 1 < argc)
+        {
+            string configFilePath = argv[++i];
+            readConfigFile(configFilePath);
+        }
         else
         {
             cerr << "Unknown parameter: " << arg << endl;
             return 1;
         }
+    }
+
+    // If the user does not specify a port or path, use default values
+    if (serverHomeDir.empty())
+    {
+        serverHomeDir = getCurrentWorkingDirectory();
+    }
+    if (listeningPort == 0)
+    {
+        listeningPort = DEFAULT_PORT;
     }
 
     WSADATA wsaData;

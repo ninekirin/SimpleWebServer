@@ -1,2 +1,12 @@
-﻿  LINK : 没有找到 C:\Users\Kirin\source\repos\SimpleWebServer\x64\Debug\Server.exe 或上一个增量链接没有生成它；正在执行完全链接
+﻿  Server.cpp
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(159,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(170,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(181,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(192,54): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(294,58): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(300,47): warning C4244: “参数”: 从“std::streamsize”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(365,58): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(382,44): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(388,58): warning C4267: “参数”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\Kirin\source\repos\SimpleWebServer\Server\Server.cpp(452,30): warning C4244: “初始化”: 从“unsigned long”转换到“char”，可能丢失数据
   Server.vcxproj -> C:\Users\Kirin\source\repos\SimpleWebServer\x64\Debug\Server.exe
