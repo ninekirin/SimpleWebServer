@@ -13,6 +13,7 @@
         "xlocmon": "cpp",
         "xtr1common": "cpp",
         "xutility": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "xiosbase": "cpp"
     }
 }

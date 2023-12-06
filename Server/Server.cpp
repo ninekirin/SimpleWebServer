@@ -202,6 +202,14 @@ string getContentType(const string &filename)
     {
         return "application/xml";
     }
+    else if (filename.find(".mp3") != string::npos)
+    {
+        return "audio/mpeg";
+    }
+    else if (filename.find(".mp4") != string::npos)
+    {
+        return "video/mp4";
+    } 
     else if (filename.find(".txt") != string::npos)
     {
         return "text/plain";
@@ -248,6 +256,95 @@ void sendFileContent(const SOCKET &socket, const string &filePath, const string 
     }
     fileStream.close();
 }
+
+// Function to send the requested file content with support for range requests
+void sendPartialContent(const SOCKET& socket, const string& filePath, const string& contentType, const string& rangeHeader)
+{
+    ifstream fileStream(filePath, ios::in | ios::binary);
+    if (!fileStream.is_open())
+    {
+        // File not found, send 404 response
+        sendNotFound(socket);
+        return;
+    }
+
+    // Get the length of the file
+    fileStream.seekg(0, fileStream.end);
+    size_t fileLength = fileStream.tellg();
+    fileStream.seekg(0, fileStream.beg);
+
+    size_t startRange = 0;
+    size_t endRange = fileLength - 1;
+
+    // Check if a range is requested
+    bool isRangeRequest = !rangeHeader.empty();
+    if (isRangeRequest)
+    {
+        // Parse the range header to get the byte range (e.g., "bytes=0-499")
+        size_t rangePos = rangeHeader.find("bytes=");
+        size_t dashPos = rangeHeader.find('-');
+        if (rangePos != string::npos && dashPos != string::npos)
+        {
+            string startStr = rangeHeader.substr(rangePos + 6, dashPos - (rangePos + 6));
+            string endStr = rangeHeader.substr(dashPos + 1);
+            if (!startStr.empty())
+            {
+                startRange = stoull(startStr);
+            }
+            if (!endStr.empty())
+            {
+                endRange = stoull(endStr);
+            }
+            // If the end range is out of bounds, adjust it to the file size
+            if (endRange >= fileLength)
+            {
+                endRange = fileLength - 1;
+            }
+        }
+    }
+
+    size_t contentLength = endRange - startRange + 1;
+
+    // Send HTTP headers
+    stringstream headers;
+    headers << (isRangeRequest ? "HTTP/1.1 206 Partial Content\r\n" : "HTTP/1.1 200 OK\r\n");
+    headers << "Content-Type: " << contentType << "\r\n";
+    headers << "Content-Length: " << contentLength << "\r\n";
+    headers << "Connection: keep-alive\r\n";
+    if (isRangeRequest)
+    {
+        headers << "Content-Range: bytes " << startRange << "-" << endRange << "/" << fileLength << "\r\n";
+    }
+    headers << "\r\n";
+    string headersStr = headers.str();
+    send(socket, headersStr.c_str(), headersStr.size(), 0);
+
+    // Adjust the file stream based on the range
+    if (isRangeRequest && startRange > 0)
+    {
+        fileStream.seekg(startRange, fileStream.beg);
+    }
+
+    // Debug: print the response
+    safePrint(getClientIpAddrAndPort(socket) + " <- Response: " + (isRangeRequest ? "206 Partial Content (Range: " + to_string(startRange) + "-" + to_string(endRange) + ")" : "200 OK (Length: " + to_string(contentLength) + ")"));
+
+    // Send the file content in chunks
+    char buffer[BUFFER_LEN];
+    size_t bytesRead = 0;
+    while (bytesRead < contentLength && fileStream.read(buffer, sizeof(buffer)))
+    {
+        size_t bytesToSend = min(sizeof(buffer), contentLength - bytesRead);
+        send(socket, buffer, bytesToSend, 0);
+        bytesRead += bytesToSend;
+    }
+    if (bytesRead < contentLength)
+    {
+        fileStream.read(buffer, contentLength - bytesRead);
+        send(socket, buffer, contentLength - bytesRead, 0);
+    }
+    fileStream.close();
+}
+
 
 // Function to parse the URL into the requested resource and query string
 string parseUrl(const string &url)
@@ -389,10 +486,31 @@ void handleHttpRequest(Client &client)
     string filePath = string(serverHomeDir) + "\\" + resource; // Consider backslash for Windows paths
     string contentType = getContentType(resource);             // Get the correct content type based on processed resource
 
-    // Debug: print the request
-    safePrint(getClientIpAddrAndPort(client.socket) + " -> " + method + " " + url + " " + httpVersion + "\n\t\t\t-> Resource: " + resource);
+    // Parse headers to find the Range request
+    string rangeHeader;
+    string line;
+    while (getline(requestStream, line) && line != "\r")
+    {
+        if (line.find("Range: ") != string::npos)
+        {
+            rangeHeader = line.substr(line.find("Range: ") + 7);
+            rangeHeader.erase(rangeHeader.find_last_not_of("\r\n") + 1); // Remove any trailing CR/LF
+        }
+    }
 
-    sendFileContent(client.socket, filePath, contentType);
+    // Send the requested file content
+    if (!rangeHeader.empty())
+    {
+        // Debug: print the request
+        safePrint(getClientIpAddrAndPort(client.socket) + " -> Request: " + method + " " + url + " " + httpVersion + " (Range: " + rangeHeader + ")");
+        sendPartialContent(client.socket, filePath, contentType, rangeHeader);
+    }
+    else
+    {
+        // Debug: print the request
+        safePrint(getClientIpAddrAndPort(client.socket) + " -> Request: " + method + " " + url + " " + httpVersion);
+        sendFileContent(client.socket, filePath, contentType);
+    }
 }
 
 void handleClient(Client client)
